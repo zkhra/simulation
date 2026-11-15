@@ -1,0 +1,552 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Симулятор курорта</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Layout: пульт управляющего курортом. Маршрутная линия из пяти лет, живая сцена озера, шкалы показателей, карточки решений. */
+:root{
+  --bg:#EBF1F3; --surface:#FFFFFF; --ink:#0E2430; --muted:#4A6170; --line:#C7D5DB;
+  --accent:#0A6B7C; --accent-soft:#BFE0E6; --on-accent:#FFFFFF;
+  --good:#1B7A4B; --good-bg:#DCF1E5; --bad:#B03A2B; --bad-bg:#F8E0DA; --warn:#B7791F;
+  --sky:#DCEBF0; --far:#9DB9C4; --near:#5F8896; --water:#2E7F92; --sand:#E3C98A; --sunc:#F2B53A; --wall:#D9B26A; --tree:#2F6B55;
+  --snow:#FFFFFF; --road:#5E6E76; --roof:#B5533C;
+  --f-display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --f-body:'Golos Text',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B1A21; --surface:#12262F; --ink:#E6F0F3; --muted:#9DB4BF; --line:#24404C;
+    --accent:#4FC0D4; --accent-soft:#1C4753; --on-accent:#06222A;
+    --good:#5FD39A; --good-bg:#12372A; --bad:#FF9482; --bad-bg:#3C1F1A; --warn:#F0B94A;
+    --sky:#16323D; --far:#2B5565; --near:#1E4150; --water:#2C7C90; --sand:#8C7440; --sunc:#F0B94A; --wall:#A07C3A; --tree:#3E8A6E;
+    --snow:#DCE8EC; --road:#8CA0AA; --roof:#D98068;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B1A21; --surface:#12262F; --ink:#E6F0F3; --muted:#9DB4BF; --line:#24404C;
+  --accent:#4FC0D4; --accent-soft:#1C4753; --on-accent:#06222A;
+  --good:#5FD39A; --good-bg:#12372A; --bad:#FF9482; --bad-bg:#3C1F1A; --warn:#F0B94A;
+  --sky:#16323D; --far:#2B5565; --near:#1E4150; --water:#2C7C90; --sand:#8C7440; --sunc:#F0B94A; --wall:#A07C3A; --tree:#3E8A6E;
+  --snow:#DCE8EC; --road:#8CA0AA; --roof:#D98068;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;line-height:1.2;margin:0;text-wrap:balance}
+p{margin:0}
+.brand{font-size:.78rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* route */
+.route{display:flex;list-style:none;padding:0;margin:0}
+.route li{flex:1;position:relative;display:flex;justify-content:center}
+.route li::before{content:"";position:absolute;top:14px;left:-50%;width:100%;height:2px;background:var(--line)}
+.route li:first-child::before{display:none}
+.route li.reach::before{background:var(--accent)}
+.dot{position:relative;z-index:1;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:var(--bg);
+  display:grid;place-items:center;font-size:.8rem;font-weight:600;color:var(--muted)}
+.dot.cur{border-color:var(--accent);color:var(--accent);outline:4px solid var(--accent-soft)}
+.dot.done{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+/* card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.scene{display:block;width:100%;height:auto;aspect-ratio:400/170}
+.body{padding:22px;display:flex;flex-direction:column;gap:16px}
+.eyebrow{font-size:.78rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.card h2{font-size:clamp(1.2rem,4vw,1.55rem)}
+.card h3{font-size:1rem}
+.q{font-size:1.05rem;line-height:1.5}
+.muted{color:var(--muted)}
+.hint{padding:12px 14px;border-radius:10px;background:var(--accent-soft);font-size:.95rem}
+
+/* gauges */
+.gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 16px}
+.g{min-width:0}
+.gh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:.88rem;margin-bottom:4px}
+.gh b{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.gh em{font-style:normal;font-size:.78rem;margin-left:6px}
+.gh em.up{color:var(--good)} .gh em.dn{color:var(--bad)}
+.gt{position:relative;height:10px;border-radius:5px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.gf{position:absolute;left:0;top:0;bottom:0;background:var(--accent)}
+.g.nat .gf{background:var(--good)}
+.g.low .gf{background:var(--bad)}
+.gx{position:absolute;top:0;bottom:0}
+.gx.up{background:repeating-linear-gradient(135deg,var(--good) 0 4px,transparent 4px 8px);opacity:.75}
+.gx.dn{background:repeating-linear-gradient(135deg,var(--bad) 0 4px,transparent 4px 8px);opacity:.75}
+.money{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;padding:12px 14px;border:1px solid var(--line);border-radius:10px}
+.money b{font-family:var(--f-display);font-size:1.25rem;font-variant-numeric:tabular-nums}
+.money span{color:var(--muted);font-size:.92rem}
+
+/* actions */
+.acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.act{display:flex;flex-direction:column;gap:6px;text-align:left;padding:14px;min-width:0;background:var(--surface);color:var(--ink);
+  border:1.5px solid var(--line);border-radius:12px;font:inherit;cursor:pointer}
+.act:hover:not(:disabled){border-color:var(--accent)}
+.act.on{border-color:var(--accent);background:var(--accent-soft)}
+.act:disabled{opacity:.5;cursor:not-allowed}
+.act .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.act .at{font-weight:600}
+.act .ac{font-variant-numeric:tabular-nums;font-weight:600;color:var(--accent);white-space:nowrap}
+.act .ad{font-size:.88rem;color:var(--muted)}
+.fx{display:flex;flex-wrap:wrap;gap:6px}
+.fx i{font-style:normal;font-size:.78rem;font-weight:500;padding:2px 8px;border-radius:99px;border:1px solid var(--line)}
+.fx i.p{color:var(--good);border-color:var(--good)}
+.fx i.m{color:var(--bad);border-color:var(--bad)}
+.foot{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.btn{background:var(--accent);color:var(--on-accent);border:0;border-radius:10px;padding:13px 22px;font:600 1rem var(--f-body);cursor:pointer}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+
+/* result */
+.big{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.big b{font-family:var(--f-display);font-size:clamp(1.8rem,6vw,2.4rem);font-variant-numeric:tabular-nums}
+.big span{color:var(--muted)}
+.note{border-radius:12px;padding:14px 16px;border:1.5px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.note.tip{background:var(--accent-soft);border-color:var(--accent)}
+.note .nh{font-family:var(--f-display);font-size:.85rem;font-weight:700}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:4px 12px;border-radius:99px;border:1px solid var(--line);font-size:.88rem}
+.chip.hot{border-color:var(--bad);color:var(--bad)}
+
+/* chart */
+.chart{display:flex;gap:10px;align-items:flex-end}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.plot{position:relative;height:150px;border-bottom:2px solid var(--line)}
+.bar{position:absolute;left:18%;right:18%;bottom:0;background:var(--accent);border-radius:6px 6px 0 0}
+.bar.hot{background:var(--bad)}
+.bar.base{background:var(--far)}
+.capl{position:absolute;left:0;right:0;border-top:2px dashed var(--warn)}
+.v{position:absolute;left:0;right:0;text-align:center;font-size:.78rem;font-weight:600;font-variant-numeric:tabular-nums}
+.lbl{text-align:center;font-size:.76rem;color:var(--muted)}
+.legend{font-size:.84rem;color:var(--muted)}
+
+/* start / final */
+.hero{display:flex;flex-direction:column;gap:14px}
+.hero h1{font-size:clamp(1.7rem,6vw,2.5rem)}
+.lead{font-size:1.08rem;color:var(--muted);max-width:56ch}
+.rules{margin:0;padding-left:1.2rem;display:grid;gap:8px}
+.timeline{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.timeline li{display:grid;grid-template-columns:4.5rem 1fr;gap:10px;font-size:.92rem}
+.timeline b{color:var(--accent)}
+.take{margin:0;padding-left:1.2rem;display:grid;gap:8px}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+
+/* scene */
+.c-sky{fill:var(--sky)} .c-far{fill:var(--far)} .c-near{fill:var(--near)} .c-water{fill:var(--water)}
+.c-sand{fill:var(--sand)} .c-sun{fill:var(--sunc)} .c-tree{fill:var(--tree)} .c-snow{fill:var(--snow)}
+.c-roof{fill:var(--roof)} .c-wall{fill:var(--wall)} .c-ink{fill:var(--ink)} .c-flag{fill:var(--sunc)}
+.c-road{stroke:var(--road);fill:none;stroke-linecap:round}
+.c-mark{stroke:var(--snow);fill:none;stroke-width:1.4;stroke-dasharray:6 6}
+.c-pole{stroke:var(--ink);stroke-width:1.6;fill:none}
+.c-trail{stroke:var(--snow);stroke-width:1.6;stroke-dasharray:2 5;fill:none;stroke-linecap:round}
+.c-murk{fill:var(--sand);opacity:.4}
+.c-lift{stroke:var(--ink);stroke-width:1.2;fill:none}
+
+@media (max-width:560px){
+  .body{padding:18px 16px}
+  .acts{grid-template-columns:1fr}
+  .timeline li{grid-template-columns:3.6rem 1fr}
+}
+@media (prefers-reduced-motion:no-preference){
+  .note,.hint{animation:rise .25s ease-out}
+  .bar,.gf{transition:height .5s ease,width .35s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+}
+</style>
+
+<div class="wrap">
+  <div class="brand">Рекреационные ресурсы стран СНГ · симулятор</div>
+  <ol class="route" id="route" hidden aria-label="Годы программы"></ol>
+  <main id="app"></main>
+</div>
+
+<script>
+(function(){
+  var MAXY = 5;
+  var STATS = [
+    {id:"access", n:"Доступность",   h:"Дороги, аэропорты, время в пути"},
+    {id:"infra",  n:"Инфраструктура", h:"Гостиницы, сервис, очистные, тропы"},
+    {id:"fame",   n:"Известность",    h:"Бренд и реклама направления"},
+    {id:"season", n:"Всесезонность",  h:"Сколько месяцев в году курорт принимает гостей"},
+    {id:"nature", n:"Природа",        h:"Состояние озера, лесов и берегов"}
+  ];
+  var ACTIONS = [
+    {id:"road",   t:"Дорога до озера",        d:"Асфальт вместо горной грунтовки.",            cost:30, fx:{access:25, nature:-4}},
+    {id:"air",    t:"Региональный аэропорт",  d:"Прямые рейсы из крупных городов.",            cost:50, fx:{access:35, nature:-6}},
+    {id:"hotel",  t:"Гостиницы и сервис",     d:"Отели, кафе, прокат, гиды.",                  cost:30, fx:{infra:22, nature:-5}},
+    {id:"eco",    t:"Очистные и тропы",       d:"Канализация и обустроенные маршруты.",        cost:25, fx:{infra:8, nature:8}},
+    {id:"ad",     t:"Реклама и бренд",        d:"Кампания, блогеры, выставки.",                cost:15, fx:{fame:22}},
+    {id:"season", t:"Всесезонные программы",  d:"Лыжи, термальные источники, фестивали.",      cost:25, fx:{season:25, infra:5}},
+    {id:"zone",   t:"Зонирование и лимиты",   d:"Охраняемые участки и квоты на посещение.",    cost:15, fx:{nature:12, access:-3}}
+  ];
+  var NAMES = {access:"Доступность", infra:"Инфраструктура", fame:"Известность", season:"Всесезонность", nature:"Природа"};
+
+  function cl(v){ return Math.max(0, Math.min(100, v)); }
+  function fmt(n, d){ var m = Math.pow(10, d || 0); return String(Math.round(n * m) / m).replace(".", ","); }
+  function copy(o){ var r = {}; for (var k in o) r[k] = o[k]; return r; }
+
+  var EVENTS = [
+    {n:"Старт программы",
+     t:"Озеро Светлое, вымышленное горное озеро в СНГ. Природа почти нетронута, но туристов мало: до берега трудно добраться, ночевать негде, о курорте никто не слышал.",
+     apply:function(s, c){ return {mult:1, note:""}; }},
+    {n:"Видео об озере набрало миллионы просмотров",
+     t:"Блогеры нашли озеро, и известность растёт сама. Вопрос в том, готов ли курорт принять гостей.",
+     apply:function(s, c){
+       s.fame = cl(s.fame + 10);
+       if (s.infra < 35){ s.nature = cl(s.nature - 3); return {mult:.9, note:"Гостей приехало больше, чем мест. Очереди и жалобы отпугнули часть потока, а стихийные лагеря повредили берег."}; }
+       return {mult:1, note:"Сервис справился с наплывом, и новые гости остались довольны. Известность выросла на 10."}; }},
+    {n:"Дождливое лето",
+     t:"Сезон выдался прохладным и сырым. Пляжный отдых под вопросом.",
+     apply:function(s, c){
+       if (s.season < 40) return {mult:.8, note:"Курорт держится на хорошей погоде, поэтому поток упал на пятую часть."};
+       return {mult:1.05, note:"Всесезонные программы выручили: гости нашли занятия и в дождь."}; }},
+    {n:"Соседний регион открыл новый курорт",
+     t:"Конкурент переманивает туристов. Люди выбирают те направления, о которых знают.",
+     apply:function(s, c){
+       if (s.fame < 50) return {mult:.85, note:"Узнаваемости не хватило, и часть гостей уехала к конкуренту."};
+       return {mult:1, note:"Сильный бренд удержал гостей."}; }},
+    {n:"Проверка экологов",
+     t:"Инспекция оценивает состояние природы вокруг озера.",
+     apply:function(s, c){
+       if (s.nature < 60){ c.budget -= 15; return {mult:.9, note:"Штраф 15 млн у.е. и временные ограничения. Состояние природы стало слабым местом."}; }
+       c.budget += 10; return {mult:1, note:"Природа в хорошем состоянии, получен грант 10 млн у.е."}; }}
+  ];
+
+  var TIPS = {
+    access:"Узкое место года: доступность. Пока добраться до озера долго и сложно, реклама и отели работают вполсилы. В реальности поток зависит от транспорта не меньше, чем от красоты природы.",
+    infra:"Узкое место года: инфраструктура. Гостей привлекли, но мест для размещения и сервиса не хватает, поэтому часть потока теряется.",
+    fame:"Узкое место года: известность. Дорога и отели есть, а о курорте мало кто знает. Туристы выбирают то, что видят в потоке предложений.",
+    season:"Узкое место года: сезонность. Курорт работает лишь часть года, и годовой поток остаётся небольшим.",
+    load:"Перегрузка: территория не справляется с таким числом гостей. Природа теряет баллы, а вместе с ней со временем уходит и привлекательность. Нужны лимиты, тропы и очистные.",
+    nature:"Природа деградирует. Пока поток растёт, это не видно, но привлекательность озера падает, и без охраны развитие упрётся в потолок.",
+    balanced:"Слабого звена почти нет: доступность, сервис и известность растут вместе. К этому и стремится региональное рекреационное планирование."
+  };
+
+  var st, mode = "start";
+  var app = document.getElementById("app");
+  var routeEl = document.getElementById("route");
+
+  function demand(s, mult){
+    var core = Math.cbrt(Math.max(s.access, 5) * Math.max(s.infra, 5) * Math.max(s.fame, 5)) / 100;
+    var seasonF = .45 + .55 * s.season / 100;
+    var attract = .5 + .5 * s.nature / 100;
+    return 900 * core * seasonF * attract * (mult || 1);
+  }
+  function capacity(s){ return 80 + 3.2 * s.nature + 1.2 * s.infra; }
+
+  function newGame(){
+    st = {year:1, stats:{access:15, infra:15, fame:10, season:20, nature:90}, budget:70, picks:[], history:[], t0:Date.now(), last:null};
+    st.flow = Math.round(demand(st.stats, 1));
+    st.baseFlow = st.flow;
+    st.baseCap = Math.round(capacity(st.stats));
+  }
+
+  function applyPicks(stats, picks){
+    var s = copy(stats);
+    picks.forEach(function(a){ for (var k in a.fx) s[k] = cl(s[k] + a.fx[k]); });
+    return s;
+  }
+  function actionById(id){ return ACTIONS.filter(function(a){ return a.id === id; })[0]; }
+  function spentOf(picks){ return picks.reduce(function(t, a){ return t + a.cost; }, 0); }
+
+  function simulate(picks){
+    var prev = copy(st.stats);
+    var s = applyPicks(st.stats, picks);
+    var c = {budget: st.budget - spentOf(picks)};
+    var ev = EVENTS[st.year - 1].apply(s, c);
+    var dem = demand(s, ev.mult);
+    var cap = capacity(s);
+    var pressure = dem / cap;
+    var loss = Math.max(0, pressure - .75) * 50;
+    var rec = pressure < .4 ? 2 : 0;
+    s.nature = cl(s.nature - loss + rec);
+    var income = dem / 6;
+    c.budget += income;
+
+    var cand = [{id:"access", v:s.access}, {id:"infra", v:s.infra}, {id:"fame", v:s.fame}];
+    if (s.season < 40) cand.push({id:"season", v:s.season});
+    cand.sort(function(a, b){ return a.v - b.v; });
+    var tip;
+    if (pressure > .85) tip = "load";
+    else if (s.nature < 50) tip = "nature";
+    else if (cand[0].v < 60) tip = cand[0].id;
+    else tip = "balanced";
+
+    return {
+      prevStats: prev, stats: s, budget: c.budget, flow: Math.round(dem), cap: Math.round(cap), pressure: pressure,
+      income: income, note: ev.note, tip: tip,
+      picks: picks.map(function(a){ return a.t; }), event: EVENTS[st.year - 1].n
+    };
+  }
+
+  /* ---------- scene ---------- */
+  function drawScene(s, flow){
+    var h = "";
+    h += '<rect width="400" height="170" class="c-sky"/>';
+    h += '<circle cx="332" cy="34" r="15" class="c-sun"/>';
+    h += '<polygon points="0,100 60,46 110,84 170,30 240,96 300,58 400,104 400,112 0,112" class="c-far"/>';
+    if (s.season >= 50){
+      h += '<polygon points="48,58 60,46 72,58 66,56 60,61 54,56" class="c-snow"/>';
+      h += '<polygon points="156,46 170,30 184,46 178,43 170,49 163,43" class="c-snow"/>';
+      h += '<polygon points="290,68 300,58 310,68 305,66 300,71 295,66" class="c-snow"/>';
+    }
+    if (s.season >= 75){
+      h += '<path d="M196 100 L300 64" class="c-lift"/><rect x="226" y="86" width="7" height="6" class="c-ink"/><rect x="262" y="74" width="7" height="6" class="c-ink"/>';
+    }
+    h += '<polygon points="0,114 70,88 140,112 220,84 310,114 370,96 400,112 400,120 0,120" class="c-near"/>';
+    h += '<rect y="112" width="400" height="34" class="c-water"/>';
+    if (s.nature < 50) h += '<rect y="112" width="400" height="34" class="c-murk"/>';
+    h += '<path d="M60 124h38M150 134h54M260 126h44M330 138h40" stroke="var(--sky)" stroke-width="2" stroke-linecap="round" fill="none" opacity=".55"/>';
+    h += '<rect y="146" width="400" height="24" class="c-sand"/>';
+
+    var bx = [104, 132, 160, 188, 216, 244];
+    var nb = Math.min(6, Math.floor(s.infra / 16));
+    for (var i = 0; i < nb; i++){
+      var x = bx[i];
+      h += '<rect x="'+x+'" y="132" width="20" height="16" class="c-wall"/><polygon points="'+(x-2)+',132 '+(x+10)+',121 '+(x+22)+',132" class="c-roof"/>';
+    }
+    var tx = [10, 30, 50, 296, 316, 336, 356, 376, 78, 272, 388, 66];
+    var nt = Math.round(s.nature / 100 * 12);
+    for (var t = 0; t < nt; t++){
+      var X = tx[t];
+      h += '<polygon points="'+X+',156 '+(X+6)+',136 '+(X+12)+',156" class="'+(s.nature < 50 ? "c-sand" : "c-tree")+'"/>';
+    }
+    if (s.fame >= 40) h += '<path d="M286 150V118" class="c-pole"/><polygon points="286,118 302,123 286,128" class="c-flag"/>';
+    if (s.fame >= 70) h += '<path d="M96 150V118" class="c-pole"/><polygon points="96,118 112,123 96,128" class="c-flag"/>';
+    if (s.access >= 25){
+      var w = s.access >= 50 ? 7 : 3;
+      h += '<path d="M-10 164 Q100 152 200 160 T410 158" class="c-road" stroke-width="'+w+'"'+(s.access < 50 ? ' stroke-dasharray="6 5"' : '')+'/>';
+      if (s.access >= 50) h += '<path d="M-10 164 Q100 152 200 160 T410 158" class="c-mark"/>';
+    }
+    if (s.access >= 70){
+      h += '<path d="M60 30 L88 26 L94 28 L88 31 L76 33 L70 39 L66 39 L70 33Z" class="c-ink"/><path d="M10 38 L56 31" class="c-trail"/>';
+    }
+    var np = Math.min(26, Math.round(flow / 14));
+    for (var p = 0; p < np; p++){
+      var px = 14 + (p * 53) % 372, py = 150 + (p * 7) % 9;
+      h += '<circle cx="'+px+'" cy="'+py+'" r="2.3" class="c-ink"/>';
+    }
+    return '<svg class="scene" viewBox="0 0 400 170" role="img" aria-label="Озеро Светлое: показатели развития курорта отражены на рисунке">'+h+'</svg>';
+  }
+
+  /* ---------- pieces ---------- */
+  function gaugesHtml(cur, pend){
+    return '<div class="gauges">' + STATS.map(function(k){
+      var c = cur[k.id], p = pend ? pend[k.id] : c;
+      var d = Math.round(p - c);
+      var lo = Math.min(c, p), hi = Math.max(c, p);
+      var cls = "g" + (k.id === "nature" ? (p < 45 ? " low" : " nat") : "");
+      var chip = d ? '<em class="'+(d > 0 ? "up" : "dn")+'">'+(d > 0 ? "+" : "−")+Math.abs(d)+'</em>' : "";
+      var extra = d ? '<span class="gx '+(d > 0 ? "up" : "dn")+'" style="left:'+lo+'%;width:'+(hi - lo)+'%"></span>' : "";
+      return '<div class="'+cls+'" title="'+k.h+'"><div class="gh"><span>'+k.n+'</span><b>'+Math.round(p)+chip+'</b></div>' +
+        '<div class="gt"><span class="gf" style="width:'+lo+'%"></span>'+extra+'</div></div>';
+    }).join("") + '</div>';
+  }
+
+  function chartHtml(){
+    var cols = [{l:"Старт", f:st.baseFlow, c:st.baseCap, base:1}];
+    st.history.forEach(function(r, i){ cols.push({l:"Год "+(i + 1), f:r.flow, c:r.cap, hot:r.pressure > .85}); });
+    while (cols.length < MAXY + 1) cols.push({l:"Год "+cols.length, f:null});
+    var max = 100;
+    cols.forEach(function(c){ if (c.f != null) max = Math.max(max, c.f, c.c); });
+    max *= 1.12;
+    return '<div><div class="chart" role="img" aria-label="Поток туристов по годам в тысячах человек">' + cols.map(function(c){
+      if (c.f == null) return '<div class="col"><div class="plot"></div><span class="lbl">'+c.l+'</span></div>';
+      var hf = c.f / max * 100, hc = c.c / max * 100;
+      return '<div class="col"><div class="plot"><span class="bar'+(c.base ? " base" : c.hot ? " hot" : "")+'" style="height:'+hf+'%"></span>' +
+        '<span class="capl" style="bottom:'+hc+'%"></span><span class="v" style="bottom:calc('+hf+'% + 3px)">'+c.f+'</span></div><span class="lbl">'+c.l+'</span></div>';
+    }).join("") + '</div><p class="legend">Столбцы показывают поток, тыс. человек в год. Пунктир отмечает допустимую нагрузку на территорию. Красный столбец означает перегрузку.</p></div>';
+  }
+
+  function drawRoute(){
+    if (mode === "start"){ routeEl.hidden = true; return; }
+    routeEl.hidden = false;
+    var out = "";
+    for (var y = 1; y <= MAXY; y++){
+      var done = (mode === "final") || y < st.year || (mode === "result" && y === st.year);
+      var cur = mode === "plan" && y === st.year;
+      var cls = "dot" + (done ? " done" : cur ? " cur" : "");
+      out += '<li class="'+((y <= st.year || mode === "final") ? "reach" : "")+'"><span class="'+cls+'" title="Год '+y+'">'+(done ? "✓" : y)+'</span></li>';
+    }
+    routeEl.innerHTML = out;
+  }
+
+  /* ---------- screens ---------- */
+  function renderStart(){
+    mode = "start"; newGame(); drawRoute();
+    app.innerHTML =
+      '<article class="card">' + drawScene(st.stats, st.flow) +
+        '<div class="body hero">' +
+          '<p class="eyebrow">Интерактивная игра · около 5 минут</p>' +
+          '<h1>Симулятор курорта</h1>' +
+          '<p class="lead">Вы управляете развитием вымышленного горного озера Светлое. За 5 лет нужно привлечь туристов и не разрушить природу, ради которой они приезжают.</p>' +
+          '<ul class="rules">' +
+            '<li>Каждый год выберите до двух решений в пределах бюджета.</li>' +
+            '<li>Поток туристов ограничивает самое слабое звено: дорога, сервис или известность.</li>' +
+            '<li>Слишком много гостей разрушает природу, а без неё падает привлекательность озера.</li>' +
+          '</ul>' +
+          '<button type="button" class="btn" data-act="start" style="align-self:flex-start">Начать управление</button>' +
+        '</div>' +
+      '</article>';
+    app.querySelector("[data-act=start]").focus({preventScroll:true});
+  }
+
+  function renderPlan(){
+    mode = "plan"; st.picks = []; drawRoute();
+    var ev = EVENTS[st.year - 1];
+    app.innerHTML =
+      '<article class="card">' +
+        '<div id="scene"></div>' +
+        '<div class="body">' +
+          '<p class="eyebrow">Год '+st.year+' из '+MAXY+'</p>' +
+          '<h2>'+ev.n+'</h2>' +
+          '<p class="q">'+ev.t+'</p>' +
+          (st.year === 1 ? '<p class="hint">Выберите до двух решений. Штриховка на шкалах показывает, как они изменят показатели. Чем слабее самое слабое звено, тем меньше туристов.</p>' : '') +
+          '<div id="gauges"></div>' +
+          '<div class="money" id="money"></div>' +
+          '<h3>Решения года</h3>' +
+          '<div class="acts" id="acts"></div>' +
+          '<div class="foot" id="foot"></div>' +
+        '</div>' +
+      '</article>';
+    updatePlan();
+  }
+
+  function updatePlan(focusId){
+    var picks = st.picks.map(actionById);
+    var pend = applyPicks(st.stats, picks);
+    var spent = spentOf(picks), left = st.budget - spent;
+    document.getElementById("scene").innerHTML = drawScene(pend, st.flow);
+    document.getElementById("gauges").innerHTML = gaugesHtml(st.stats, pend);
+    document.getElementById("money").innerHTML =
+      '<b>'+fmt(left, 1)+' млн у.е.</b><span>доступно после решений (на старте года '+fmt(st.budget, 1)+')</span>' +
+      '<span>Потока сейчас: <b style="font-size:1rem">'+st.flow+' тыс.</b> человек в год</span>';
+    document.getElementById("acts").innerHTML = ACTIONS.map(function(a){
+      var on = st.picks.indexOf(a.id) >= 0;
+      var blocked = !on && (st.picks.length >= 2 || a.cost > left);
+      var fx = "";
+      for (var k in a.fx) fx += '<i class="'+(a.fx[k] > 0 ? "p" : "m")+'">'+NAMES[k]+' '+(a.fx[k] > 0 ? "+" : "−")+Math.abs(a.fx[k])+'</i>';
+      return '<button type="button" class="act'+(on ? " on" : "")+'" data-id="'+a.id+'" aria-pressed="'+on+'"'+(blocked ? " disabled" : "")+'>' +
+        '<span class="top"><span class="at">'+a.t+'</span><span class="ac">'+a.cost+' млн</span></span>' +
+        '<span class="ad">'+a.d+'</span><span class="fx">'+fx+'</span></button>';
+    }).join("");
+    document.getElementById("foot").innerHTML =
+      '<span class="muted">Выбрано '+st.picks.length+' из 2</span>' +
+      '<button type="button" class="btn" data-act="finish">Завершить год</button>';
+    if (focusId){
+      var f = app.querySelector('.act[data-id="'+focusId+'"]');
+      if (f) f.focus({preventScroll:true});
+    }
+  }
+
+  function toggle(id){
+    var i = st.picks.indexOf(id);
+    if (i >= 0) st.picks.splice(i, 1);
+    else {
+      var left = st.budget - spentOf(st.picks.map(actionById));
+      if (st.picks.length >= 2 || actionById(id).cost > left) return;
+      st.picks.push(id);
+    }
+    updatePlan(id);
+  }
+
+  function finishYear(){
+    var res = simulate(st.picks.map(actionById));
+    var prevFlow = st.flow;
+    res.prevFlow = prevFlow;
+    st.history.push(res);
+    st.stats = res.stats; st.budget = res.budget; st.flow = res.flow; st.last = res;
+    mode = "result"; drawRoute();
+    var diff = res.flow - prevFlow;
+    var last = st.year >= MAXY;
+    app.innerHTML =
+      '<article class="card">' + drawScene(res.stats, res.flow) +
+        '<div class="body">' +
+          '<p class="eyebrow">Итоги года '+st.year+' · '+res.event+'</p>' +
+          '<div class="big"><b>'+res.flow+' тыс.</b><span>гостей за год ('+(diff >= 0 ? "+" : "−")+Math.abs(diff)+' к прошлому)</span></div>' +
+          '<div class="chips">' +
+            '<span class="chip">Доход: +'+fmt(res.income, 1)+' млн у.е.</span>' +
+            '<span class="chip">Бюджет: '+fmt(res.budget, 1)+' млн у.е.</span>' +
+            '<span class="chip'+(res.pressure > .85 ? " hot" : "")+'">Нагрузка на территорию: '+Math.round(res.pressure * 100)+'%</span>' +
+          '</div>' +
+          (res.picks.length ? '<p class="muted">Решения года: '+res.picks.join(", ")+'.</p>' : '<p class="muted">В этом году вы не принимали решений.</p>') +
+          gaugesHtml(res.prevStats, res.stats) +
+          (res.note ? '<div class="note"><span class="nh">Что случилось</span><p>'+res.note+'</p></div>' : '') +
+          '<div class="note tip"><span class="nh">Совет эксперта</span><p>'+TIPS[res.tip]+'</p></div>' +
+          chartHtml() +
+          '<div class="foot"><span></span><button type="button" class="btn" data-act="next">'+(last ? "Подвести итоги" : "Следующий год")+'</button></div>' +
+        '</div>' +
+      '</article>';
+    app.querySelector("[data-act=next]").focus({preventScroll:true});
+  }
+
+  function specialization(s, flow){
+    if (s.nature < 45) return "Перегруженная территория";
+    if (s.nature >= 75 && flow < 250) return "Эко-рекреационная зона";
+    if (s.season >= 60 && s.infra >= 50) return "Круглогодичный курорт";
+    if (s.infra >= 55 && s.fame >= 55) return "Курорт летнего отдыха";
+    return "Развивающееся направление";
+  }
+
+  function renderFinal(){
+    mode = "final"; drawRoute();
+    var s = st.stats;
+    var score = Math.round(45 * Math.min(st.flow / 450, 1) + 45 * s.nature / 100 + 10 * s.season / 100);
+    var title = score >= 80 ? "Мастер регионального планирования"
+      : score >= 60 ? "Опытный управляющий курортом"
+      : score >= 40 ? "Начинающий планировщик"
+      : "Курорт ещё в разработке";
+    var secs = Math.round((Date.now() - st.t0) / 1000);
+    var time = Math.floor(secs / 60) + ":" + ("0" + (secs % 60)).slice(-2);
+    app.innerHTML =
+      '<article class="card">' + drawScene(s, st.flow) +
+        '<div class="body">' +
+          '<p class="eyebrow">Пять лет позади · время игры '+time+'</p>' +
+          '<h2>'+title+'</h2>' +
+          '<div class="big"><b>'+score+' / 100</b><span>индекс устойчивого развития</span></div>' +
+          '<div class="chips">' +
+            '<span class="chip">Специализация: '+specialization(s, st.flow)+'</span>' +
+            '<span class="chip">Поток: '+st.flow+' тыс. в год (было '+st.baseFlow+')</span>' +
+            '<span class="chip">Природа: '+Math.round(s.nature)+' из 100</span>' +
+          '</div>' +
+          chartHtml() +
+          gaugesHtml(s, null) +
+          '<h3>Ваши решения по годам</h3>' +
+          '<ul class="timeline">' + st.history.map(function(r, i){
+            return '<li><b>Год '+(i + 1)+'</b><span>'+(r.picks.length ? r.picks.join(", ") : "без решений")+'</span></li>';
+          }).join("") + '</ul>' +
+          '<h3>Как это в реальности</h3>' +
+          '<ul class="take">' +
+            '<li>Нагрузка в СНГ распределена неравномерно: Узбекистан принял около 11,7 млн иностранных туристов в 2025 году, и его главная специализация культурно-историческая.</li>' +
+            '<li>Один Иссык-Куль даёт около половины потока Кыргызстана (около 2,6 из 5,3 млн), а на Байкал приходится около 2,5 млн посетителей в год.</li>' +
+            '<li>Потенциал региона определяют доступность, инфраструктура и положение в туристических потоках, а не размер территории. В вашей игре поток тоже каждый раз ограничивало самое слабое звено.</li>' +
+          '</ul>' +
+          '<div class="actions"><button type="button" class="btn" data-act="again">Сыграть ещё раз</button></div>' +
+        '</div>' +
+      '</article>';
+    app.querySelector("[data-act=again]").focus({preventScroll:true});
+  }
+
+  app.addEventListener("click", function(e){
+    var a = e.target.closest(".act");
+    if (a && mode === "plan"){ toggle(a.getAttribute("data-id")); return; }
+    var b = e.target.closest("[data-act]");
+    if (!b) return;
+    var act = b.getAttribute("data-act");
+    if (act === "start"){ st.t0 = Date.now(); renderPlan(); window.scrollTo(0, 0); }
+    else if (act === "finish"){ finishYear(); window.scrollTo(0, 0); }
+    else if (act === "next"){
+      if (st.year < MAXY){ st.year++; renderPlan(); } else { renderFinal(); }
+      window.scrollTo(0, 0);
+    }
+    else if (act === "again"){ renderStart(); window.scrollTo(0, 0); }
+  });
+
+  renderStart();
+})();
+</script>
+
+</body></html>
